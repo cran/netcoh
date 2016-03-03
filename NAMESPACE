@@ -1,0 +1,8 @@
+useDynLib(netcoh)
+
+export(rncreg,rncregpath,predict.rncReg)
+exportClasses(rncReg)
+importFrom(Rcpp, evalCpp)
+import(Matrix,methods)
+
+S3method(predict,rncReg)

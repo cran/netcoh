@@ -1,0 +1,13 @@
+425035851e595e8cccbb2b12f056baf1 *DESCRIPTION
+08bbfb6d1292655a5f79a8e91cd7bb6d *NAMESPACE
+1573c20ce2cfaa336503113c3db1294e *R/RcppExports.R
+1e65166acec86517fc23c491b01526f8 *R/Rfunc.R
+d8f34f7c2acd33aef0fa0f84d30fe500 *man/netcoh-package.Rd
+7b3920dd6889305492f8464bd8de9efc *man/predict.rncReg.Rd
+aa5d15c13ad5a00cb4f2e65975045139 *man/rncReg-class.Rd
+2d95ea2c185c02b6ae9fc098162c5230 *man/rncreg.Rd
+a84b70eb94b852679591de59a0ff899d *man/rncregpath.Rd
+9ae80eee41b1b3697be8f5e3dc032134 *src/CppCode.cpp
+2a6f9e9e044a78154d3cfda5936d6f48 *src/Makevars
+8d46d69896a1f1d31ed76035a0e49d67 *src/Makevars.win
+c3b46d496be62f3eb364f5e66d9e31ab *src/RcppExports.cpp
