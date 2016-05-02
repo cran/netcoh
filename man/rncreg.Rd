@@ -101,15 +101,20 @@ beta <- rnorm(2)
 
 X <- matrix(rnorm(400),ncol=2)
 
-Y <- X%*%beta + alpha + rnorm(200)
+Y <- X%*%matrix(beta,ncol=1) + alpha + rnorm(200)*0.5
+
+delta <- Y
+delta[Y>0] <- 1
+delta[Y<=0] <- 0
 
 A1 <- A[1:100,1:100]
 X1 <- X[1:100,]
 Y1 <- matrix(Y[1:100],ncol=1)
+delta1 <- matrix(delta[1:100],ncol=1)
 
 
 ## If one wants to regularize the Laplacian
-## by using gamma > 0 in rncreg, 
+## by using gamma > 0 in rncreg,
 ## we suggest use centered data.
 #mean.x <- colMeans(X1)
 #mean.y <- mean(Y1)
@@ -118,11 +123,14 @@ Y1 <- matrix(Y[1:100],ncol=1)
 #Y <- Y-mean.y
 #X <- t(t(X)-mean.x)
 
-
-
 m <- rncreg(A=A1,X=X1,Y=Y1,model="linear",lambda=10,gamma=0,cv=5)
-
 p <- predict(m,full.A=A,full.X=X)
+
+#m <- rncreg(A=A1,X=X1,Y=Y1,model="logistic",lambda=10,gamma=0.01,cv=5)
+
+#m <- rncreg(A=A1,X=X1,dt=data.frame(y=Y1,delta=delta1),model="cox",lambda=10,gamma=0.01,cv=5)
+
+
   }
 \keyword{models}
 \keyword{networks}

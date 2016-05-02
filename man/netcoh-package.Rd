@@ -13,8 +13,8 @@ on networks with network cohesion effects being taken into consideration.
 \tabular{ll}{
 Package: \tab netcoh\cr
 Type: \tab Package\cr
-Version: \tab 0.1\cr
-Date: \tab 2016-02-27\cr
+Version: \tab 0.2\cr
+Date: \tab 2016-04-29\cr
 License: \tab GPL (>= 2)\cr
 }
 The major function \code{rncreg} accepts \code{A} network adjacency matrix, \code{X} design matrix and

@@ -65,7 +65,14 @@ potentially faster.}
 }
 \value{ A list will be returned with the following slots:
 	\item{models}{A list of objects from \code{rncReg} class, each of which corresponds to a specific lambda value in lambdaseq. }
-	\item{cv.seq}{The sequence of cross-validation loss corresponding to lambdaseq.}
+	\item{cv.seq}{The sequence of cross-validation loss
+	  corresponding to lambdaseq.}
+	\item{cv.sd}{The sequence of corssivalidation standard
+	  deviation}
+	\item{cv.min.index}{The index of model that corresponds to the
+	  one with miminum cv loss.}
+	\item{cv.1sd.index}{The index of model that corresponds to the
+  one selected by 1 sigma rule.}
 }
 \references{Tianxi Li, Elizaveta Levina and Ji Zhu. (2016)
   \emph{Regression with network cohesion},

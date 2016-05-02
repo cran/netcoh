@@ -26,7 +26,11 @@ Objects can be created by calls of the form \code{new("rncReg", ...)}.
     \item{\code{cv}:}{Number of folds in cross-validation. }
     \item{\code{cv.loss}:}{Cross-validated prediciton loss. It is MSE
       for linear regression, binomial deviance for logistic regression
-      and test partial loglikelihood for Cox's model (see reference paper).}
+      and test partial loglikelihood for Cox's model (see reference
+      paper).}
+    \item{\code{cv.sd}:}{Standard deviation of cross-validation
+      loss. It can be used for cross-validation by 1 sigma rule. It is
+      more robust to noises.}
     \item{\code{model}:}{The specific regression model used.}
   }
 }

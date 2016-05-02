@@ -23,6 +23,7 @@ rnc.linear <- function(X=NULL,Y,A,lambda,gamma=0,cv=NULL,cv.seed=999,low.dim=NUL
 	    alpha <- tmp.result[1:n]
 	    beta <- tmp.result[(n+1):(n+p)]
 	    cv.MSE <- 0
+            cv.sd <- NULL
 	    if(!is.null(cv)){
 	    	    set.seed(cv.seed)
 	        K <- cv
@@ -33,23 +34,25 @@ rnc.linear <- function(X=NULL,Y,A,lambda,gamma=0,cv=NULL,cv.seed=999,low.dim=NUL
 	        cv.order <- sample(eligible.n,size=eligible.n)
 	        cv.index <- 1:eligible.n
 	        cv.index[cv.order] <- 1:K
-	        for(k in 1:K){	
+                cv.MSE.seq <- rep(0,K)
+	        for(k in 1:K){
 	            valid.index <- eligible.nodes[which(cv.index==k)]
 	            current.index <- (1:n)[-valid.index]
 	            s.A <- Adj[current.index,current.index]
 	            cv.lm.net <- rnc.linear(X=matrix(X[current.index,],ncol=ncol(X)),Y=Y[current.index],A=s.A,lambda=lambda,gamma=gamma,cv=NULL)
-	            
+
 	            L11 <- Matrix(L[valid.index,valid.index],sparse=TRUE)
 	            L12 <- -1*L[valid.index,current.index]
 	            valid.alpha <- solve(L11,L12,sparse=TRUE)%*%cv.lm.net$alpha
 	            valid.y <- valid.alpha + X[valid.index,]%*%matrix(cv.lm.net$beta,ncol=1)
-	            cv.MSE <- cv.MSE + mean((valid.y-Y[valid.index])^2)
+	            cv.MSE.seq[k] <- mean((valid.y-Y[valid.index])^2)
 	            #print(mean((valid.y-Y[valid.index])^2))
 	            #print(cv.MSE)
 	        }
-	        cv.MSE <- cv.MSE/K
+	        cv.MSE <- mean(cv.MSE.seq)
+                cv.sd <- sd(cv.MSE.seq)/sqrt(K)
 	    }
-	    return(list(alpha=alpha,beta=beta,cv.MSE=cv.MSE))
+	    return(list(alpha=alpha,beta=beta,cv.MSE=cv.MSE,cv.sd=cv.sd))
     }else{
 	    n <- length(Y)
 	    Y <- matrix(Y,ncol=1)
@@ -60,7 +63,9 @@ rnc.linear <- function(X=NULL,Y,A,lambda,gamma=0,cv=NULL,cv.seed=999,low.dim=NUL
 	    alpha <- tmp.result[1:n]
 	    beta <- NULL
 	    cv.MSE <- 0
-	    if(!is.null(cv)){
+            cv.sd <- NULL
+
+            if(!is.null(cv)){
 	        K <- cv
 	        eligible.nodes <- 1:n
 	        eligible.n <- length(eligible.nodes)
@@ -69,24 +74,26 @@ rnc.linear <- function(X=NULL,Y,A,lambda,gamma=0,cv=NULL,cv.seed=999,low.dim=NUL
 	        cv.order <- sample(eligible.n,size=eligible.n)
 	        cv.index <- 1:eligible.n
 	        cv.index[cv.order] <- 1:K
-	        for(k in 1:K){	
+                cv.MSE.seq <- rep(0,K)
+	        for(k in 1:K){
 	            valid.index <- eligible.nodes[which(cv.index==k)]
 	            current.index <- (1:n)[-valid.index]
 	            s.A <- Adj[current.index,current.index]
 	            cv.lm.net <- rnc.linear(X=NULL,Y=Y[current.index],A=s.A,lambda=lambda,gamma=gamma,cv=NULL)
-	            
+
 	            L11 <- Matrix(L[valid.index,valid.index],sparse=TRUE)
 	            L12 <- -1*L[valid.index,current.index]
 	            valid.alpha <- solve(L11,L12,sparse=TRUE)%*%cv.lm.net$alpha
 	            valid.y <- valid.alpha
-	            cv.MSE <- cv.MSE + mean((valid.y-Y[valid.index])^2)
+	            cv.MSE.seq[k] <- mean((valid.y-Y[valid.index])^2)
 	            #print(mean((valid.y-Y[valid.index])^2))
 	            #print(cv.MSE)
 	        }
-	        cv.MSE <- cv.MSE/K
+	        cv.MSE <- mean(cv.MSE.seq)
+                cv.sd <- sd(cv.MSE.seq)/sqrt(K)
 	    }
-	    return(list(alpha=alpha,beta=beta,cv.MSE=cv.MSE))
-    	
+	    return(list(alpha=alpha,beta=beta,cv.MSE=cv.MSE,cv.sd=cv.sd))
+
     }
 }
 
@@ -112,18 +119,12 @@ rnc.logistic <- function(A,lambda,Y,X=NULL,gamma=0.05,max.iter=20,tol=1e-4,init=
     	theta <- rnc_logistic_fit_noX(L=L,Y=Y,lambda=lambda,theta_init = init,tol=tol,max_iter=max.iter,verbose=verbose)
     }else{
         theta <- rnc_logistic_fit(X=X,L=L,Y=Y,lambda=lambda,theta_init = init,tol=tol,max_iter=max.iter,verbose=verbose)
-    }  
+    }
 
     alpha <- theta[1:n]
     beta <- theta[-(1:n)]
     cv.dev <- NULL
-    if(is.null(X)){
-        eta.fitted <- alpha
-    }else{
-        eta.fitted <- alpha + X%*%matrix(beta,ncol=1)
-    }
-    p.fitted <- exp(eta.fitted)/(1+exp(eta.fitted))
-
+    cv.sd <- NULL
     if(!is.null(cv)){
         K <- cv
         set.seed(cv.seed)
@@ -131,6 +132,7 @@ rnc.logistic <- function(A,lambda,Y,X=NULL,gamma=0.05,max.iter=20,tol=1e-4,init=
         cv.order <- sample(n,size=n)
         cv.index <- 1:n
         cv.index[cv.order] <- 1:K
+        cv.dev.seq <- rep(0,K)
         #print("Beging cross-validation!")
         for(k in 1:K){
         	    #print(paste(k,"th cross-validation...."))
@@ -138,16 +140,16 @@ rnc.logistic <- function(A,lambda,Y,X=NULL,gamma=0.05,max.iter=20,tol=1e-4,init=
             valid.index <- which(cv.index==k)
             s.A <- A[current.index,current.index]
             if(is.null(X)){
-	            cv.logit.net <- rnc.logistic(X=NULL,A=s.A,Y=matrix(Y[current.index],ncol=1),lambda=lambda,init = matrix(init[-valid.index,1],ncol=1),tol=tol,max.iter=max.iter,verbose=FALSE,cv=NULL) 
-	                       
+	            cv.logit.net <- rnc.logistic(X=NULL,A=s.A,Y=matrix(Y[current.index],ncol=1),lambda=lambda,init = matrix(init[-valid.index,1],ncol=1),tol=tol,max.iter=max.iter,verbose=FALSE,cv=NULL)
+
 		        L11 <- Matrix(L[valid.index,valid.index],sparse=TRUE)
 		        L12 <- -1*L[valid.index,current.index]
 		        valid.alpha <- solve(L11,L12%*%cv.logit.net$alpha,sparse=TRUE)
 	            valid.eta <- valid.alpha
-             	
+
             }else{
-	            cv.logit.net <- rnc.logistic(X=matrix(X[current.index,],ncol=ncol(X)),A=s.A,Y=matrix(Y[current.index],ncol=1),lambda=lambda,init = matrix(init[-valid.index,1],ncol=1),tol=tol,max.iter=max.iter,verbose=FALSE,cv=NULL) 
-	            n.valid <- length(valid.index)	            
+	            cv.logit.net <- rnc.logistic(X=matrix(X[current.index,],ncol=ncol(X)),A=s.A,Y=matrix(Y[current.index],ncol=1),lambda=lambda,init = matrix(init[-valid.index,1],ncol=1),tol=tol,max.iter=max.iter,verbose=FALSE,cv=NULL)
+	            n.valid <- length(valid.index)
 		        L11 <- Matrix(L[valid.index,valid.index],sparse=TRUE)
 		        L12 <- -1*L[valid.index,current.index]
 		        valid.alpha <- solve(L11,L12%*%cv.logit.net$alpha,sparse=TRUE)
@@ -156,12 +158,15 @@ rnc.logistic <- function(A,lambda,Y,X=NULL,gamma=0.05,max.iter=20,tol=1e-4,init=
             valid.p <- exp(valid.eta)/(1+exp(valid.eta))
             valid.p[valid.p<1e-6] <- 1e-6
             valid.p[valid.p>(1-1e-6)] <- 1-1e-6
-            cv.dev <- cv.dev - sum(Y[valid.index]*log(valid.p)) - sum((1-Y[valid.index])*log(1-valid.p))        
+            cv.dev.seq[k] <-  - mean(Y[valid.index]*log(valid.p)) - mean((1-Y[valid.index])*log(1-valid.p))
+            #print(cv.dev.seq[k])
     }
+        cv.dev <- mean(cv.dev.seq)
+        cv.sd <- sd(cv.dev.seq)/sqrt(K)
     }
 
 
-    return(list(alpha=alpha,beta=beta,cv.dev=cv.dev,fitted=p.fitted))
+    return(list(alpha=alpha,beta=beta,cv.dev=cv.dev,cv.sd=cv.sd))
 }
 
 
@@ -200,7 +205,7 @@ rnc.cox <- function(A,lambda,dt,X=NULL,max.iter=500,tol=5e-6,init=NULL,gamma=0.0
     	theta <-rnc_cox_fit(X=X,L=L,Y=Y,delta=delta,lambda=lambda,theta_init=theta.init,tol=tol,max_iter=max.iter,verbose=verbose)
     }else{
     	theta <-rnc_cox_fit_noX(L=L,Y=Y,delta=delta,lambda=lambda,theta_init=theta.init,tol=tol,max_iter=max.iter,verbose=verbose)
-    	} 
+    	}
     alpha <- theta[1:n]
     beta <- theta[-(1:n)]
     if(is.null(X)){
@@ -210,6 +215,7 @@ rnc.cox <- function(A,lambda,dt,X=NULL,max.iter=500,tol=5e-6,init=NULL,gamma=0.0
     	}
     lpl <- cox_pll(eta=eta,Y=matrix(dt$y,ncol=1),delta = matrix(dt$delta,ncol=1))
     CV.lpl <- NULL
+    cv.sd <- NULL
 if(!is.null(cv)){
 set.seed(cv.seed)
 K <- cv
@@ -228,6 +234,7 @@ if(K==n){
 }
 
 CV.lpl <- SCV.lpl <- 0
+CV.lpl.seq <- rep(0,K)
 for(cv.k in 1:K){
         #print(paste("LOO CV at iteration ",cv.k))
         valid.index <- which(cv.index==cv.k)
@@ -251,7 +258,7 @@ for(cv.k in 1:K){
         tmp.model <- rnc.cox(A=s.A,lambda=lambda,dt=s.dt,X=s.X,max.iter=max.iter,gamma=gamma,init=tmp.init,tol=tol)
         #print("CV model fitted!")
         L.valid <- Matrix(L[valid.index,valid.index],sparse=TRUE)
-        
+
         valid.alpha <- -solve(L.valid,L[valid.index,current.index]%*%tmp.model$alpha)
         new.alpha <- rep(0,n)
         new.alpha[current.index] <- tmp.model$alpha
@@ -263,11 +270,14 @@ for(cv.k in 1:K){
     	}
         l.beta.k <- cox_pll(eta=cv.eta,Y=matrix(dt$y,ncol=1),delta = matrix(dt$delta,ncol=1))
         l.k.beta.k <- tmp.model$lpl
-        CV.lpl <- CV.lpl + l.beta.k - l.k.beta.k
+        CV.lpl.seq[cv.k] <- l.beta.k - l.k.beta.k
+
     }
+    CV.lpl <- mean(CV.lpl.seq)
+    cv.sd <- sd(CV.lpl.seq)/sqrt(K)
 
 }
-    return(list(alpha=alpha,beta=beta,theta=theta,lpl = lpl,lambda=lambda,gamma=gamma,cv=cv,cv.dev=-1*CV.lpl))
+    return(list(alpha=alpha,beta=beta,theta=theta,lpl = lpl,lambda=lambda,gamma=gamma,cv=cv,cv.dev=-1*CV.lpl,cv.sd=cv.sd))
 }
 
 
@@ -298,35 +308,35 @@ rncreg <- function(A,lambda,Y=NULL,X=NULL,dt=NULL,gamma=0.05,model=c("linear","l
     }
     if(!is.null(Y)){
         if(class(Y)!="matrix") stop("Y should be a matrix!")
-        if(nrow(Y)!=n) stop("Dimensions do not match!")    	    
+        if(nrow(Y)!=n) stop("Dimensions do not match!")
     }
     if(!is.null(dt)){
         if(nrow(dt)!=n) stop("Dimensions do not match!")
         if(class(dt)!="data.frame") stop("dt must be a data.frame!")
     }
-    
+
     if(model=="linear"){
     	    result <- rnc.linear(X=X,Y=Y,A=A,lambda=lambda,gamma=gamma,cv=cv,cv.seed=cv.seed,low.dim=low.dim)
-    	    result.obj <- list(alpha=result$alpha,beta=result$beta,A=A,lambda=lambda,X=X,Y=Y,dt=dt,gamma=gamma,cv=cv,cv.loss=result$cv.MSE,model=model)
+    	    result.obj <- list(alpha=result$alpha,beta=result$beta,A=A,lambda=lambda,X=X,Y=Y,dt=dt,gamma=gamma,cv=cv,cv.loss=result$cv.MSE,cv.sd=result$cv.sd,model=model)
     	    class(result.obj) <- "rncReg"
     	    return(result.obj)
-    }	
+    }
 
     if(model=="logistic"){
     	    result <- rnc.logistic(X=X,Y=Y,A=A,lambda=lambda,gamma=gamma,cv=cv,cv.seed=cv.seed,max.iter=max.iter,tol=tol,init=init,verbose=verbose)
-    	    result.obj <- list(alpha=result$alpha,beta=result$beta,A=A,lambda=lambda,X=X,Y=Y,dt=dt,gamma=gamma,cv=cv,cv.loss=result$cv.dev,model=model)
+    	    result.obj <- list(alpha=result$alpha,beta=result$beta,A=A,lambda=lambda,X=X,Y=Y,dt=dt,gamma=gamma,cv=cv,cv.loss=result$cv.dev,cv.sd=result$cv.sd,model=model)
     	    class(result.obj) <- "rncReg"
     	    return(result.obj)
-    }	
+    }
 
     if(model=="cox"){
     	    result <- rnc.cox(X=X,dt=dt,A=A,lambda=lambda,gamma=gamma,cv=cv,cv.seed=cv.seed,max.iter=max.iter,tol=tol,init=init,verbose=verbose)
     	    #result.obj <- list(alpha=result$alpha,beta=result$beta,A=A,lambda=lambda,X=X,dt=dt,gamma=gamma,cv=cv,cv.dev=result$cv.dev)
     	    #class(result.obj) <- "rncCox"
-    	    result.obj <- list(alpha=result$alpha,beta=result$beta,A=A,lambda=lambda,X=X,Y=Y,dt=dt,gamma=gamma,cv=cv,cv.loss=result$cv.dev,model=model)
+    	    result.obj <- list(alpha=result$alpha,beta=result$beta,A=A,lambda=lambda,X=X,Y=Y,dt=dt,gamma=gamma,cv=cv,cv.loss=result$cv.dev,cv.sd=result$cv.sd,model=model)
         class(result.obj) <- "rncReg"
     	    return(result.obj)
-    }	
+    }
 
 }
 
@@ -338,7 +348,12 @@ rncregpath <- function(A,lambdaseq,Y=NULL,X=NULL,dt=NULL,gamma=0.05,model=c("lin
 		models[[k]] <- rncreg(A=A,lambda=lambdaseq[k],Y=Y,X=X,dt=dt,gamma=gamma,model=model,max.iter=max.iter,tol=tol,init=init,cv=cv,cv.seed=cv.seed,low.dim=low.dim,verbose=verbose)
 	}
 	cv.seq <- unlist(lapply(models,function(x) x$cv.loss))
-	list(models=models,cv.seq=cv.seq)
+        cv.sd.seq <- unlist(lapply(models,function(x) x$cv.sd))
+        cv.min.index <- which.min(cv.seq)
+        thres <- min(cv.seq) + cv.sd.seq[cv.min.index]
+        se.lambda <- max(lambdaseq[cv.seq<=thres])
+        cv.1sd.index <- which(lambdaseq==se.lambda)
+	return(list(models=models,cv.seq=cv.seq,cv.sd=cv.sd.seq,cv.min.index=cv.min.index,cv.1sd.index=cv.1sd.index))
 }
 
 
@@ -361,7 +376,7 @@ predict_rncLinear <- function(obj,full.X=NULL,full.A){
 	    if(!is.null(full.X)){
 	    		    valid.index <- (n.train+1):n
 	            current.index <- 1:n.train
-	            
+
 	            L11 <- Matrix(L[valid.index,valid.index],sparse=TRUE)
 	            L12 <- -1*L[valid.index,current.index]
 	            valid.alpha <- solve(L11,L12%*%alpha,sparse=TRUE)
@@ -370,13 +385,13 @@ predict_rncLinear <- function(obj,full.X=NULL,full.A){
 	    }else{
 	    		    valid.index <- (n.train+1):n
 	            current.index <- 1:n.train
-	            
+
 	            L11 <- Matrix(L[valid.index,valid.index],sparse=TRUE)
 	            L12 <- -1*L[valid.index,current.index]
 	            valid.alpha <- solve(L11,L12%*%alpha,sparse=TRUE)
 	            valid.y <- valid.alpha
                 return(list(y=as.matrix(valid.y),terms=as.matrix(valid.y),alpha=as.matrix(valid.alpha),model="linear"))
-	    	
+
 	    }
 
 }
@@ -400,7 +415,7 @@ predict_rncLogistic <- function(obj,full.X=NULL,full.A){
 	    if(!is.null(full.X)){
 	    		    valid.index <- (n.train+1):n
 	            current.index <- 1:n.train
-	            
+
 	            L11 <- Matrix(L[valid.index,valid.index],sparse=TRUE)
 	            L12 <- -1*L[valid.index,current.index]
 	            valid.alpha <- solve(L11,L12%*%alpha,sparse=TRUE)
@@ -410,14 +425,14 @@ predict_rncLogistic <- function(obj,full.X=NULL,full.A){
 	    }else{
 	    		    valid.index <- (n.train+1):n
 	            current.index <- 1:n.train
-	            
+
 	            L11 <- Matrix(L[valid.index,valid.index],sparse=TRUE)
 	            L12 <- -1*L[valid.index,current.index]
 	            valid.alpha <- solve(L11,L12%*%alpha,sparse=TRUE)
 	            valid.terms <- valid.alpha
 	            valid.p <- exp(valid.terms)/(1+exp(valid.terms))
                 return(list(p=as.matrix(valid.p),terms=as.matrix(valid.terms),alpha=as.matrix(valid.alpha),model="logistic"))
-	    	
+
 	    }
 
 }
@@ -443,7 +458,7 @@ predict_rncCox <- function(obj,full.X=NULL,full.A){
 	    if(!is.null(full.X)){
 	    		    valid.index <- (n.train+1):n
 	            current.index <- 1:n.train
-	            
+
 	            L11 <- Matrix(L[valid.index,valid.index],sparse=TRUE)
 	            L12 <- -1*L[valid.index,current.index]
 	            valid.alpha <- solve(L11,L12%*%alpha,sparse=TRUE)
@@ -453,12 +468,12 @@ predict_rncCox <- function(obj,full.X=NULL,full.A){
 	    }else{
 	    		    valid.index <- (n.train+1):n
 	            current.index <- 1:n.train
-	            
+
 	            L11 <- Matrix(L[valid.index,valid.index],sparse=TRUE)
 	            L12 <- -1*L[valid.index,current.index]
 	            valid.alpha <- solve(L11,L12%*%alpha,sparse=TRUE)
 	            valid.terms <- valid.alpha
-                return(list(terms=as.matrix(valid.terms),alpha=as.matrix(valid.alpha),model="cox"))	    	
+                return(list(terms=as.matrix(valid.terms),alpha=as.matrix(valid.alpha),model="cox"))
 	    }
 
 }
